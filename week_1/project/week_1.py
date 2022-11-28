@@ -41,21 +41,28 @@ def csv_helper(file_name: str) -> Iterator[Stock]:
             yield Stock.from_list(row)
 
 
-@op
-def get_s3_data():
-    pass
+@op(config_schema={"s3_key": String})
+def get_s3_data(context: OpExecutionContext) -> List[Stock]:
+    s3_key = context.op_config('s3_key')
+    stocks = csv_helper(file_name = s3_key)
+    return stocks
+    
 
 
 @op
-def process_data():
-    pass
+def process_data(context: OpExecutionContext, stocks: List[Stock]) -> Aggregation:
+    sorted_stocks = sorted(stocks, key=lambda s: s.high, reverse=True)
+    max_stock = sorted_stocks[0]
+    return Aggregation(date=max_stock.date, high=max_stock.high)
+    
 
 
 @op
-def put_redis_data():
-    pass
+def put_redis_data(context: OpExecutionContext, aggregation: Aggregation):
+    context.log.info(aggregation)
 
 
 @job
 def week_1_pipeline():
-    pass
+    stocks = get_s3_data()
+    put_redis_data(process_data(stocks = get_s3_data()))
