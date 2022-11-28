@@ -2,7 +2,7 @@ import csv
 from datetime import datetime
 from typing import Iterator, List
 
-from dagster import In, Nothing, Out, String, job, op, usable_as_dagster_type
+from dagster import In, Nothing, Out, String, job, op, usable_as_dagster_type, OpExecutionContext
 from pydantic import BaseModel
 
 
@@ -43,8 +43,8 @@ def csv_helper(file_name: str) -> Iterator[Stock]:
 
 @op(config_schema={"s3_key": String})
 def get_s3_data(context: OpExecutionContext) -> List[Stock]:
-    s3_key = context.op_config('s3_key')
-    stocks = csv_helper(file_name = s3_key)
+    s3_key = context.op_config.get('s3_key')
+    stocks = list(csv_helper(file_name = s3_key))
     return stocks
     
 
@@ -65,4 +65,4 @@ def put_redis_data(context: OpExecutionContext, aggregation: Aggregation):
 @job
 def week_1_pipeline():
     stocks = get_s3_data()
-    put_redis_data(process_data(stocks = get_s3_data()))
+    put_redis_data(process_data(stocks))
